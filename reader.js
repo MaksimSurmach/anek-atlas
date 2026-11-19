@@ -296,7 +296,7 @@ function paint(canvas, points, areas, overview) {
   const sx = overview ? w * 0.45 : Math.min(w * 0.46, h * 0.68) * zoom;
   const sy = overview ? h * 0.43 : Math.min(h * 0.46, w * 0.46) * zoom;
   const cx = w * 0.5 + (overview ? 0 : pan[0]),
-    cy = h * 0.51 + (overview ? 0 : pan[1]);
+    cy = h * 0.5 + (overview ? 0 : pan[1]);
   const centers = areas.map(() => [0, 0, 0]);
   if (!overview) mappedPositions = [];
   for (const [xy, area, id] of points) {
@@ -318,12 +318,6 @@ function paint(canvas, points, areas, overview) {
       Math.PI * 2,
     );
     ctx.fill();
-    if (!overview && selectedPoint === id) {
-      ctx.strokeStyle = "#fff";
-      ctx.beginPath();
-      ctx.arc(x, y, 6, 0, 2 * Math.PI);
-      ctx.stroke();
-    }
   }
   ctx.globalAlpha = 1;
   ctx.font = "11px Arial";
@@ -356,6 +350,14 @@ function paint(canvas, points, areas, overview) {
     ctx.strokeRect(left, top, tw, 17);
     ctx.fillStyle = "#f1efd7";
     ctx.fillText(areas[i], left + 6, top + 9);
+  }
+  const selected = !overview && mappedPositions.find(p => p[2] === selectedPoint);
+  if (selected) {
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(selected[0], selected[1], 6, 0, 2 * Math.PI);
+    ctx.stroke();
   }
 }
 function drawPreview() {
@@ -514,6 +516,10 @@ canvas.onpointerup = (e) => {
   for (const [x, y, id] of mappedPositions) {
     const d =
       (x - e.clientX + rect.left) ** 2 + (y - e.clientY + rect.top) ** 2;
+    if (id === selectedPoint && d <= 36) {
+      nearest = id;
+      break;
+    }
     if (d < best) {
       best = d;
       nearest = id;
