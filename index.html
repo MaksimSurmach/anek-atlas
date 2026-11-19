@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="theme-color" content="#f7f6ef" />
+    <meta name="theme-color" content="#f8f9f7" />
     <meta
       name="description"
       content="Атлас русскоязычных анекдотов. Ищите по тексту, изучайте темы и персонажей на интерактивной карте."
@@ -16,87 +16,92 @@
   <body>
     <header class="mast">
       <div class="shell mast-inner">
-        <a href="#catalog" class="brand"
-          ><span class="mark" aria-hidden="true">✳</span> Атлас анекдотов</a
-        >
+        <a href="#catalog" class="brand">Атлас <em>анекдотов</em></a>
         <nav aria-label="Разделы">
-          <a href="#catalog" data-nav="catalog">Каталог</a
-          ><a href="#map" data-nav="map">Карта</a
-          ><button id="about">О проекте</button>
+          <a href="#catalog" data-nav="catalog">Каталог</a>
+          <a href="#top" data-nav="top">Рейтинг</a>
+          <a href="#random" data-nav="random">Случайный</a>
+          <a href="#map" data-nav="map">Карта</a>
         </nav>
       </div>
     </header>
     <main class="shell">
-      <section id="hero">
-        <div class="intro">
-          <h1>Атлас<br /><em>анекдотов</em></h1>
-          <p>
-            Архив русскоязычного юмора. Ищите знакомые истории по фразе, теме
-            или персонажу.
-          </p>
-          <div class="stats">
-            <div><b id="total">…</b><span>анекдотов</span></div>
-            <div><b id="topics">…</b><span>тем</span></div>
-            <div><b id="characters">…</b><span>персонажа</span></div>
-          </div>
-        </div>
-        <a
-          href="#map"
-          class="plate"
-          aria-label="Открыть интерактивную карту анекдотов"
-        >
-          <div class="plate-top">
-            <span><i></i> Тематическая карта</span
-            ><span>Пилот · <span id="pilot-count">…</span></span>
-          </div>
-          <canvas id="preview" aria-hidden="true"></canvas>
-          <div class="plate-bottom">
-            <span>Открыть карту</span
-            ><span class="circle-arrow" aria-hidden="true">↗</span>
-          </div>
-        </a>
-      </section>
       <section id="catalog" aria-labelledby="catalog-heading">
-        <div class="section-head">
-          <h2 id="catalog-heading">Каталог</h2>
-          <button id="random" class="dark" disabled>
-            <span aria-hidden="true">⚄</span> Случайный анекдот
-          </button>
+        <div class="section-head"><h1 id="catalog-heading">Каталог</h1></div>
+        <div class="catalog-layout">
+          <div class="catalog-list">
+            <form id="filters" class="controls" role="search">
+              <label class="search"
+                ><span class="loupe" aria-hidden="true"></span
+                ><input
+                  type="search"
+                  id="query"
+                  aria-label="Поиск по тексту или номеру"
+                  placeholder="Найти по тексту или номеру…"
+              /></label>
+              <label class="select-wrap"
+                ><span class="sr">Тема</span
+                ><select id="topic">
+                  <option value="">Все темы</option>
+                </select></label
+              >
+              <label class="select-wrap"
+                ><span class="sr">Персонаж</span
+                ><select id="character">
+                  <option value="">Все персонажи</option>
+                </select></label
+              >
+            </form>
+            <div class="result-line">
+              <p id="count" role="status">Загрузка каталога…</p>
+              <div class="result-actions">
+                <button class="link" id="clear" hidden>Сбросить фильтры</button>
+                <button id="catalog-draw" class="link" disabled>
+                  Выбрать наугад
+                </button>
+              </div>
+            </div>
+            <div class="cards" id="cards"></div>
+            <div id="pagination" hidden>
+              <button id="prev">← Назад</button><span id="page"></span
+              ><button id="next">Дальше →</button>
+            </div>
+          </div>
+          <aside class="catalog-aside">
+            <a class="map-preview" href="#map">
+              <canvas id="preview" aria-hidden="true"></canvas>
+              <strong>Карта анекдотов</strong>
+              <span
+                ><span id="pilot-count">…</span> текстов по темам и
+                персонажам</span
+              >
+            </a>
+          </aside>
         </div>
-        <form id="filters" class="controls" role="search">
-          <label class="search"
-            ><span class="loupe" aria-hidden="true"></span
-            ><input
-              type="search"
-              id="query"
-              aria-label="Поиск по тексту или номеру"
-              placeholder="Найти по тексту или номеру…"
-          /></label>
-          <label class="select-wrap"
-            ><span class="sr">Тема</span
-            ><select id="topic">
-              <option value="">Все темы</option>
-            </select></label
-          >
-          <label class="select-wrap"
-            ><span class="sr">Персонаж</span
-            ><select id="character">
-              <option value="">Все персонажи</option>
-            </select></label
-          >
-        </form>
-        <div class="result-line">
-          <p id="count" role="status">Загрузка каталога…</p>
-          <button class="link" id="clear" hidden>Сбросить фильтры</button>
+      </section>
+      <section id="top" hidden aria-labelledby="top-title">
+        <h1 id="top-title">Топ-100 анекдотов</h1>
+        <p id="top-summary" class="subtitle" role="status">
+          Загрузка рейтинга…
+        </p>
+        <ol id="ranking" class="rank-list"></ol>
+        <div class="pager" id="rank-pager" hidden>
+          <button id="rank-prev">Назад</button><span id="rank-page"></span
+          ><button id="rank-next">Дальше</button>
         </div>
-        <div class="cards" id="cards"></div>
-        <div id="pagination" hidden>
-          <button id="prev">← Назад</button><span id="page"></span
-          ><button id="next">Дальше →</button>
+      </section>
+      <section id="random-reader" hidden aria-labelledby="random-title">
+        <h1 id="random-title">Случайный анекдот</h1>
+        <article class="reading" aria-live="polite">
+          <p id="random-meta" class="metadata"></p>
+          <p id="random-text" class="full-text">Загрузка каталога…</p>
+        </article>
+        <div class="reading-actions">
+          <button class="action" id="draw" disabled>Ещё один</button>
+          <a id="random-link" class="text-link" hidden>Открыть в каталоге</a>
         </div>
       </section>
       <section id="map" hidden aria-labelledby="map-title">
-        <a href="#catalog" class="back">← Каталог</a>
         <h1 id="map-title">Карта анекдотов</h1>
         <p class="map-intro">
           Каждая точка — анекдот. Выберите подборку или нажмите на точку, чтобы
@@ -140,7 +145,7 @@
       <p id="error" role="alert" hidden></p>
     </main>
     <footer class="shell">
-      <span>Атлас анекдотов</span
+      <button id="about" class="text-link">О проекте</button
       ><span>18+ · В архиве встречается ненормативная лексика</span>
     </footer>
     <dialog id="dialog" aria-labelledby="dialog-title">

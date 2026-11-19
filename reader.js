@@ -81,23 +81,11 @@ function cards(target, list) {
   $(target).innerHTML =
     list
       .map((j) => {
-        const topic =
-          j.terms.find((id) => terms.get(id).kind === "topic") ?? j.terms[0];
-        return (
-          '<button class="card" data-joke="' +
-          j.id +
-          '"><span class="card-top"><span>№ ' +
-          j.id +
-          '</span><span class="rating">' +
-          (j.rating == null
-            ? "Без оценки"
-            : "★ " + j.rating.toFixed(1).replace(".", ",")) +
-          "</span></span><blockquote>" +
-          esc(j.text) +
-          '</blockquote><span class="card-foot"><span class="tag">' +
-          (topic === undefined ? "Без темы" : esc(termName(topic))) +
-          '</span><span aria-hidden="true">↗</span></span></button>'
-        );
+        const topic = j.terms.find((id) => terms.get(id).kind === "topic");
+        const rating =
+          j.rating == null ? "Без оценки" : fmt(+j.rating.toFixed(2)) + " / 5";
+        return `<article class="entry"><div class="metadata"><a href="#${target === "map-cards" ? "map" : "catalog"}/${j.id}" data-joke="${j.id}">№ ${j.id}</a><span>${esc(rating)}</span></div>
+      <p class="entry-text">${esc(j.text)}</p>${topic == null ? "" : `<p class="entry-topic">${esc(termName(topic))}</p>`}</article>`;
       })
       .join("") ||
     '<p class="empty">Совпадений нет. Попробуйте другую фразу или измените фильтры.</p>';
@@ -124,7 +112,10 @@ function renderCatalog() {
   $("count").textContent = catalogLoaded
     ? "Найдено: " + fmt(matches.length)
     : "Загрузка полного каталога…";
-  $("random").disabled = !catalogLoaded || !matches.length;
+  $("catalog-draw").textContent = $("clear").hidden
+    ? "Выбрать наугад"
+    : "Наугад из найденных";
+  $("catalog-draw").disabled = !catalogLoaded || !matches.length;
   $("pagination").hidden = matches.length <= pageSize;
   $("prev").disabled = !page;
   $("next").disabled = (page + 1) * pageSize >= matches.length;
@@ -148,10 +139,72 @@ $("clear").onclick = () => {
   filterCatalog();
   $("query").focus();
 };
-$("random").onclick = () =>
-  openJoke(matches[Math.floor(Math.random() * matches.length)].id);
+let ranked = [],
+  rankPage = 0,
+  previousRandom;
+const rankPageSize = 10;
+function renderRanking() {
+  const start = rankPage * rankPageSize;
+  $("ranking").start = start + 1;
+  $("ranking").innerHTML = ranked
+    .slice(start, start + rankPageSize)
+    .map(
+      (j, i) =>
+        `<li><span class="place" aria-hidden="true">${start + i + 1}</span><div class="rank-entry">
+      <div class="metadata"><a data-joke="${j.id}" href="#top/${j.id}">№ ${j.id}</a>
+      <span class="score" title="${String(j.rating).replace(".", ",")} из 5">${j.rating.toFixed(3).replace(".", ",")} / 5</span></div>
+      <p class="entry-text">${esc(j.text)}</p></div></li>`,
+    )
+    .join("");
+  $("rank-prev").disabled = !rankPage;
+  $("rank-next").disabled = start + rankPageSize >= ranked.length;
+  $("rank-page").textContent =
+    rankPage + 1 + " из " + Math.ceil(ranked.length / rankPageSize);
+  $("rank-pager").hidden = ranked.length <= rankPageSize;
+}
+function turnRank(delta) {
+  rankPage += delta;
+  renderRanking();
+  $("top-title").scrollIntoView();
+}
+$("rank-prev").onclick = () => turnRank(-1);
+$("rank-next").onclick = () => turnRank(1);
+function drawFrom(pool) {
+  const previous = pool.findIndex((j) => j.id === previousRandom);
+  const exclude = previous >= 0 && pool.length > 1;
+  let index = Math.floor(Math.random() * (pool.length - Number(exclude)));
+  if (exclude && index >= previous) index++;
+  return pool[index].id;
+}
+$("catalog-draw").onclick = () => {
+  location.hash = "random/" + drawFrom(matches);
+};
+$("draw").onclick = () => {
+  location.hash = "random/" + drawFrom(rows);
+};
+function renderRandom(hash) {
+  if (!catalogLoaded) return;
+  const requested = /^#random\/(\d+)$/.exec(hash);
+  const id = requested ? Number(requested[1]) : drawFrom(rows);
+  const joke = byId.get(id);
+  if (!requested) history.replaceState(null, "", "#random/" + id);
+  previousRandom = joke?.id;
+  $("random-meta").textContent = joke
+    ? "№ " +
+      id +
+      (joke.rating == null
+        ? " · Без оценки"
+        : " · " + fmt(+joke.rating.toFixed(2)) + " / 5")
+    : "";
+  $("random-text").textContent =
+    joke?.text ?? "Анекдота с таким номером нет в каталоге.";
+  $("random-link").hidden = !joke;
+  $("random-link").href = "#catalog/" + id;
+  $("draw").disabled = false;
+}
 function view() {
-  return location.hash.split(/[/?]/)[0] === "#map" ? "map" : "catalog";
+  const name = location.hash.slice(1).split(/[/?]/)[0];
+  return ["map", "top", "random"].includes(name) ? name : "catalog";
 }
 function openJoke(id) {
   if (!$("dialog").open) {
@@ -164,7 +217,7 @@ function openJoke(id) {
   }
 }
 function closeDialog() {
-  const routed = location.hash.includes("/");
+  const routed = /^#(?:top|catalog|map)\/\d+$/.test(location.hash);
   if (routed && openedHere) {
     history.back();
     return;
@@ -233,7 +286,7 @@ function showJoke(id) {
       .join(" ") +
     "</div>";
   if (p) {
-    if (view() === "catalog")
+    if (view() !== "map")
       body +=
         '<p class="details-line"><a class="link" href="#map?joke=' +
         id +
@@ -264,7 +317,10 @@ function showJoke(id) {
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-joke]");
-  if (b) openJoke(+b.dataset.joke);
+  if (b && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+    e.preventDefault();
+    openJoke(+b.dataset.joke);
+  }
 });
 
 function paint(canvas, points, areas, overview) {
@@ -351,7 +407,8 @@ function paint(canvas, points, areas, overview) {
     ctx.fillStyle = "#f1efd7";
     ctx.fillText(areas[i], left + 6, top + 9);
   }
-  const selected = !overview && mappedPositions.find(p => p[2] === selectedPoint);
+  const selected =
+    !overview && mappedPositions.find((p) => p[2] === selectedPoint);
   if (selected) {
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 2;
@@ -535,15 +592,25 @@ async function route() {
   const hash = location.hash,
     section = view(),
     map = section === "map";
-  $("hero").hidden = $("catalog").hidden = map;
+  $("catalog").hidden = section !== "catalog";
+  $("top").hidden = section !== "top";
+  $("random-reader").hidden = section !== "random";
+  const titles = {
+    catalog: "Каталог",
+    top: "Топ-100 анекдотов",
+    random: "Случайный анекдот",
+    map: "Карта",
+  };
+  document.title = titles[section] + " · Атлас анекдотов";
   $("map").hidden = !map;
   document.querySelectorAll("[data-nav]").forEach((a) => {
     if (a.dataset.nav === section) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
-  const id = hash.match(/^#(?:map|catalog)\/(\d+)$/);
+  const id = hash.match(/^#(?:map|catalog|top)\/(\d+)$/);
   if (!id && $("dialog").open) $("dialog").close();
   if (!meta) return;
+  if (section === "random") renderRandom(hash);
   if (map || id) {
     await ensureMap();
     if (hash !== location.hash) return;
@@ -572,21 +639,20 @@ async function route() {
   else drawPreview();
   if (id) showJoke(Number(id[1]));
 }
-window.addEventListener("hashchange", () => route().catch(showError));
+window.addEventListener("hashchange", (event) => {
+  const previous = new URL(event.oldURL).hash.split(/[/?]/)[0] || "#catalog";
+  if (previous !== "#" + view() || view() === "random") window.scrollTo(0, 0);
+  route().catch(showError);
+});
 async function start() {
   $("about").disabled = true;
   meta = await json("index");
   rows = meta.first;
   byId = new Map(rows.map((j) => [j.id, j]));
   terms = new Map(meta.terms.map((t) => [t.id, t]));
-  $("total").textContent = fmt(meta.count);
   $("pilot-count").textContent = fmt(meta.sample);
-  for (const [kind, stat] of [
-    ["topic", "topics"],
-    ["character", "characters"],
-  ]) {
+  for (const kind of ["topic", "character"]) {
     const list = meta.terms.filter((t) => t.kind === kind);
-    $(stat).textContent = fmt(list.length);
     for (const t of list.sort((a, b) => a.name.localeCompare(b.name, "ru")))
       $(kind).add(option(t.id, t.name));
   }
@@ -595,6 +661,17 @@ async function start() {
   route().catch(showError);
   rows = await json("catalog");
   byId = new Map(rows.map((j) => [j.id, j]));
+  const rated = rows.filter((j) => Number.isFinite(j.rating));
+  ranked = rated
+    .sort((a, b) => b.rating - a.rating || a.id - b.id)
+    .slice(0, 100);
+  $("top-summary").textContent =
+    "По оценкам из архива. Оценены " +
+    fmt(rated.length) +
+    " из " +
+    fmt(rows.length) +
+    " анекдотов.";
+  renderRanking();
   catalogLoaded = true;
   filterCatalog();
   renderMapList();
